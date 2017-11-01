@@ -1,6 +1,8 @@
 module.exports = function (grunt) {
+  grunt.loadNpmTasks('grunt-sass');
   grunt.loadNpmTasks('grunt-contrib-sass');
   grunt.loadNpmTasks('grunt-contrib-concat');
+  grunt.loadNpmTasks('grunt-contrib-copy');
   grunt.loadNpmTasks('grunt-contrib-connect');
   grunt.loadNpmTasks('grunt-contrib-clean');
   grunt.loadNpmTasks('grunt-contrib-watch');
@@ -9,7 +11,7 @@ module.exports = function (grunt) {
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
     builddir: '.',
-    buildtheme: '',
+    buildtheme: 'custom',
     banner: '/*!\n' +
             ' * Bootswatch v<%= pkg.version %>\n' +
             ' * Homepage: <%= pkg.homepage %>\n' +
@@ -17,7 +19,9 @@ module.exports = function (grunt) {
             ' * Licensed under <%= pkg.license %>\n' +
             ' * Based on Bootstrap\n' +
             '*/\n',
+   
     swatch: {
+      
       cerulean:{},
       cosmo:{},
       cyborg:{},
@@ -39,6 +43,7 @@ module.exports = function (grunt) {
       superhero:{},
       united:{},
       yeti:{},
+      simplex:{},
       custom:{}
     },
     clean: {
@@ -86,6 +91,29 @@ module.exports = function (grunt) {
         }
       }
     }
+    ,copy: {
+      main: {
+        files: [
+          // includes files within path
+          {expand: true,flatten: false, cwd: './bower_components/', src: ['font-awesome/css/*','font-awesome/fonts/*'],
+             dest: '<%=builddir%>/custom/', filter: 'isFile'}
+        ],
+      }
+      ,bootstrapjs: {
+        files: [
+          // includes files within path
+          {expand: true,flatten: true, cwd: './bower_components/', src: ['bootstrap/dist/js/*','popper.js/dist/umd/*'],
+             dest: '<%=builddir%>/custom/scripts/', filter: 'isFile'}
+        ],
+      }
+      ,jquery: {
+        files: [
+          // includes files within path
+          {expand: true,flatten: true, cwd: './bower_components/', src: ['jquery/dist/*'],
+             dest: '<%=builddir%>/custom/scripts/', filter: 'isFile'}
+        ],
+      },
+    } 
   });
 
   grunt.registerTask('none', function() {});
@@ -111,20 +139,37 @@ module.exports = function (grunt) {
     scssDest = '<%=builddir%>/' + theme + '/bootstrap.css';
     scssSrc = [theme + '/' + 'build.scss'];
 
-    dist = {src: concatSrc, dest: concatDest};
+    dist = {src: [concatSrc], dest: concatDest};
     grunt.config('concat.dist', dist);
     files = {};
     files[scssDest] = scssSrc;
     grunt.config('sass.dist.files', files);
+
+    // Need these for our bower_components.
+    grunt.config('sass.dist.options.loadPath', 
+    [ 
+      //'bower_components',
+    'bower_components/breakpoint-sass/stylesheets',
+    'bower_components/modular-scale/stylesheets',
+    'bower_components/susy/sass',
+    'bower_components/bootstrap/scss']
+  );
+
     grunt.config('sass.dist.options.style', 'expanded');
     grunt.config('sass.dist.options.sourcemap', 'none');
     grunt.config('sass.dist.options.precision', 8);
     grunt.config('sass.dist.options.unix-newlines', true);
- 
+
     grunt.task.run(['concat', 'sass:dist', 'exec:postcss', 'clean:build',
       compress ? 'compress:' + scssDest + ':' + '<%=builddir%>/' + theme + '/bootstrap.min.css' : 'none']);
-  });
 
+      //grunt.config('copy.main.files[0].dest', '<%=builddir%>/' + theme + '/booty/fontawesomeboo/');
+      grunt.task.run('copy:main');
+      grunt.task.run('copy:jquery');
+      grunt.task.run('copy:bootstrapjs');
+
+  });
+  
   grunt.registerTask('compress', 'compress a generic css with sass', function(fileSrc, fileDst) {
     var files = {}; files[fileDst] = fileSrc;
     grunt.log.writeln('compressing file ' + fileSrc);
@@ -134,10 +179,15 @@ module.exports = function (grunt) {
     grunt.task.run(['sass:dist']);
   });
 
+  grunt.registerTask('copyjquery', 'copy jquery.', function(fileSrc, fileDst) {
+    grunt.task.run('copy:jquery');
+  });
+
   grunt.registerMultiTask('swatch', 'build a theme', function() {
     var t = this.target;
     grunt.task.run('build:'+t);
   });
+
 
   grunt.registerTask('swatch', 'build a theme from scss ', function (theme) {
     var t = theme;
